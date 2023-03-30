@@ -1,11 +1,12 @@
 import * as THREE from "three";
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
-// import ringVertexShader from './shaders/ring/vertex.glsl';
-// import ringFragmentShader from './shaders/ring/fragment.glsl';
-
+import ringVertexShader from "./shaders/ring/vertex.glsl"
+import ringFragmentShader from "./shaders/ring/fragment.glsl"
 
 //Canvas
 const canvas = document.querySelector('canvas.webgl')
+
+
 
 //Scene
 const scene = new THREE.Scene()
@@ -15,6 +16,14 @@ const sizes = {
     width : window.innerWidth,
     height:window.innerHeight
 }
+
+//Renderer
+const renderer = new THREE.WebGLRenderer({
+    canvas:canvas,
+})
+renderer.setSize(sizes.width,sizes.height)
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
+renderer.shadowMap.enabled = true
 
 window.addEventListener('resize', () =>
 {
@@ -47,8 +56,13 @@ const controls = new OrbitControls(camera, canvas)
 controls.enableDamping = true
 
 //Lights
-const ambientLight = new THREE.AmbientLight(0xffffff, 1)
+const ambientLight = new THREE.AmbientLight(0xffffff, 0.2)
 scene.add(ambientLight)
+
+const directLight = new THREE.DirectionalLight(0xffffff, 1)
+directLight.position.set(5,0,5)
+directLight.castShadow = true
+scene.add(directLight)
 
 //Cube test
 const geometry = new THREE.BoxGeometry(1,1,1)
@@ -57,6 +71,8 @@ const material = new THREE.MeshBasicMaterial({})
 
 const cube = new THREE.Mesh(geometry,material)
 cube.position.x = -5
+cube.castShadow = true
+cube.receiveShadow = true
 scene.add(cube)
 
 //Texture
@@ -86,6 +102,8 @@ earthMat.aoMap = earthAmbOccTexture
 
 
 const earth = new THREE.Mesh(earthGeom, earthMat)
+earth.castShadow = true
+earth.receiveShadow = true
 scene.add(earth)
 
 const moonGeom = new THREE.SphereGeometry(0.25)
@@ -94,6 +112,8 @@ const moonMat = new THREE.MeshBasicMaterial({
 })
 const moon = new THREE.Mesh(moonGeom, moonMat)
 moon.position.x = 3
+moon.castShadow = true
+moon.receiveShadow=true
 scene.add(moon)
 
 //Rings
@@ -102,6 +122,7 @@ const ringGeom = new THREE.BufferGeometry()
 const particleNbr = 1000
 const ringPositions = new Float32Array(particleNbr*3)
 const ringColors = new Float32Array(particleNbr*3)
+const scales = new Float32Array(particleNbr * 1)
 
 for (let i = 0; i < particleNbr; i++) {
     const i3 = i *3
@@ -113,30 +134,31 @@ for (let i = 0; i < particleNbr; i++) {
     ringColors[i3] = Math.random()
     ringColors[i3 + 1] = Math.random()
     ringColors[i3 + 2] = Math.random()
+
+    scales[i] = Math.random()
 }
 
 ringGeom.setAttribute('position', new THREE.BufferAttribute(ringPositions, 3))
 ringGeom.setAttribute('color', new THREE.BufferAttribute(ringColors, 3))
+ringGeom.setAttribute('aScale', new THREE.BufferAttribute(scales, 1 ))
 
-const ringMaterial = new THREE.PointsMaterial({
-    sizeAttenuation: true,
+const ringMaterial = new THREE.ShaderMaterial({
     depthWrite: false, //Transparence
     blending: THREE.AdditiveBlending, //mélange couleur
     vertexColors: true,
-    size:0.05,
-    // vertexShader: ringVertexShader,
-    // fragmentShader: ringFragmentShader,
+    vertexShader: ringVertexShader,
+    fragmentShader: ringFragmentShader,
+    uniforms:{
+        uSize:{value:100 * renderer.getPixelRatio()},
+        uTime:{value:0}
+    },
 })
 
 const ring = new THREE.Points(ringGeom, ringMaterial)
 scene.add(ring)
 
-//Renderer
-const renderer = new THREE.WebGLRenderer({
-    canvas:canvas,
-})
-renderer.setSize(sizes.width,sizes.height)
-renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
+console.log(camera.position);
+
 
 //Animate
 const clock = new THREE.Clock()
@@ -151,13 +173,15 @@ const tick = () =>{
     moon.position.z = Math.sin(elapsedTime)*2.5
     moon.position.y = Math.cos(elapsedTime)*1
     
-    ring.rotation.y = -elapsedTime * 0.2
+    ringMaterial.uniforms.uTime.value = -elapsedTime
 
     cube.position.x = Math.cos(elapsedTime)*5
     cube.position.z = Math.sin(elapsedTime)*5
     cube.rotation.y = -elapsedTime
-
     controls.update(elapsedTime)
+
+    //directLight.position.set(camera.position.x,camera.position.y,camera.position.z)
+
 
     renderer.render(scene, camera)
     window.requestAnimationFrame(tick)
