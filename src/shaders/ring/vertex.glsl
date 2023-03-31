@@ -2,6 +2,7 @@ uniform float uSize;
 uniform float uTime;
 
 attribute float aScale;
+attribute float aBlinking;
 
 varying vec3 vColor;
 varying vec2 vUv;
@@ -14,7 +15,7 @@ void main()
     vec4 modelPosition = modelMatrix * vec4(position, 1.0);
     float distanceToCenter = length(modelPosition.xz);
     float angle = atan(modelPosition.x, modelPosition.z);
-    float angleOffset = uTime * 0.2;
+    float angleOffset = -uTime/2.0;
     angle += angleOffset;
     modelPosition.x = cos(angle) * distanceToCenter;
     modelPosition.z = sin(angle) * distanceToCenter;
@@ -28,6 +29,6 @@ void main()
     /**
      * Size
      */
-    gl_PointSize = uSize * aScale;
+    gl_PointSize = (uSize * aScale) * (cos(uTime*aBlinking));
     gl_PointSize *= (1.0 / - viewPosition.z);
 }
